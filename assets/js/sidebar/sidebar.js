@@ -1,0 +1,164 @@
+import React, { Component } from "react";
+import { Link } from "react-router-dom";
+import {
+  DASHBOARD_DAILY_OVERVIEW_ANALYTICS_URL,
+  DASHBOARD_MOOD_LOGS_URL,
+  DASHBOARD_PRODUCTIVITY_ANALYTICS_URL,
+  DASHBOARD_PRODUCTIVITY_LOGS_URL,
+  DASHBOARD_SLEEP_ANALYTICS_URL,
+  DASHBOARD_SLEEP_LOGS_URL,
+  DASHBOARD_SUPPLEMENT_REMINDERS_URL,
+  DASHBOARD_SUPPLEMENTS_EVENTS_LOGS_URL,
+  DASHBOARD_SUPPLEMENTS_STACKS_URL,
+  DASHBOARD_SUPPLEMENTS_URL,
+  DASHBOARD_USER_ACTIVITIES_EVENTS_LOGS_URL,
+  DASHBOARD_USER_ACTIVITIES_URL,
+  EXPORT_ALL_DATA_URL,
+  LOGOUT_URL,
+  RELEASE_NOTES_URL
+} from "../constants/urls";
+
+const NewStatus = () => <span className="badge badge-info">NEW</span>;
+
+const NavigationTitle = props => (
+  <li className="nav-title">
+    {props.title}
+  </li>
+);
+
+const NavigationLink = props => (
+  <li className="nav-item">
+    <Link className="nav-link" to={props.link}>
+      <i className={props.iconName} /> {props.label}
+      {props.isNew ? <NewStatus /> : <span />}
+    </Link>
+  </li>
+);
+
+const LogSidebar = () => {
+  return (
+    <div>
+      <NavigationTitle title="Log" />
+      <NavigationLink
+        iconName="icon-chemistry"
+        label="Supplements"
+        link={DASHBOARD_SUPPLEMENTS_EVENTS_LOGS_URL}
+      />
+      <NavigationLink
+        iconName="icon-note"
+        label="Events"
+        link={DASHBOARD_USER_ACTIVITIES_EVENTS_LOGS_URL}
+      />
+      <NavigationLink
+        iconName="icon-graph"
+        label="Productivity"
+        link={DASHBOARD_PRODUCTIVITY_LOGS_URL}
+      />
+      <NavigationLink
+        iconName="icon-volume-off"
+        label="Sleep"
+        link={DASHBOARD_SLEEP_LOGS_URL}
+      />
+      <NavigationLink
+        iconName="icon-volume-off"
+        label="Mood"
+        link={DASHBOARD_MOOD_LOGS_URL}
+      />
+    </div>
+  );
+};
+
+const AnalyticsSidebar = () => {
+  return (
+    <div>
+      <NavigationTitle title="Analytics" />
+      <NavigationLink
+        iconName="icon-chart"
+        label="Sleep"
+        link={DASHBOARD_SLEEP_ANALYTICS_URL}
+      />
+      <NavigationLink
+        iconName="icon-speedometer"
+        label="Productivity"
+        link={DASHBOARD_PRODUCTIVITY_ANALYTICS_URL}
+      />
+      <NavigationLink
+        iconName="icon-clock"
+        label="Daily Overview"
+        link={DASHBOARD_DAILY_OVERVIEW_ANALYTICS_URL}
+      />
+    </div>
+  );
+};
+
+const DataSourcesMenu = props => (
+  <div>
+    <NavigationTitle title="Data Sources" />
+    <DataSourcesMenuLinks />
+  </div>
+);
+
+const DataSourcesMenuLinks = () => (
+  <div>
+    <NavigationLink
+      iconName="icon-calendar"
+      label="Text Reminders"
+      link={DASHBOARD_SUPPLEMENT_REMINDERS_URL}
+    />
+    <NavigationLink
+      iconName="icon-calendar"
+      label="Supp. Stacks"
+      link={DASHBOARD_SUPPLEMENTS_STACKS_URL}
+    />
+    <NavigationLink
+      iconName="icon-list"
+      label="Activity Types"
+      link={DASHBOARD_USER_ACTIVITIES_URL}
+    />
+    <NavigationLink
+      iconName="icon-list"
+      label="Supplements"
+      link={DASHBOARD_SUPPLEMENTS_URL}
+    />
+  </div>
+);
+
+const ControlPanelSidebar = () => (
+  <div>
+    <NavigationTitle title="Control Panel" />
+    <NavigationLink
+      iconName="icon-note"
+      label="Release Notes"
+      link={RELEASE_NOTES_URL}
+      isNew={true}
+    />
+    <NavigationLink
+      iconName="icon-cloud-download"
+      label="Export All Data"
+      link={EXPORT_ALL_DATA_URL}
+    />
+    <NavigationLink
+      iconName="icon-cloud-download"
+      label="Logout All Devices"
+      link={LOGOUT_URL}
+    />
+  </div>
+);
+
+const Sidebar = () => {
+  return (
+    <nav className="sidebar sidebar-nav">
+      <ul className="nav">
+        <LogSidebar />
+        <li className="divider" />
+        <AnalyticsSidebar />
+        <li className="divider" />
+        <DataSourcesMenu />
+        <li className="divider" />
+        <ControlPanelSidebar />
+      </ul>
+    </nav>
+  );
+};
+
+export default Sidebar;

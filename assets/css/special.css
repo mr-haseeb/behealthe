@@ -1,0 +1,173 @@
+/*This file is testament to my inadequacy at CSS*/
+
+#event-dashboard-submit {
+  background-color: #193441;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#explain-rescuetime {
+  margin-bottom: 0;
+  background-color: #193441;
+}
+
+#create-username {
+  background-color: #193441;
+}
+
+.add-event-label {
+  font-weight: bold;
+}
+
+#add-new-object-button {
+  margin-bottom: 0;
+  background-color: #c80032;
+  color: white;
+}
+
+#setup-fitbit-button {
+  margin-top: 0;
+  background-color: #c80032;
+  color: white;
+}
+
+#add-supplement-entry-text {
+  line-height: 2;
+}
+
+#white-text {
+  color:white
+}
+
+.dashboard-label-text{
+  font-weight: bold;
+}
+
+.remove-icon{
+  display: inline;
+  color: darkred;
+}
+
+.true-icon{
+  color: darkgreen;
+  text-align: center;
+}
+
+.username-text {
+  color: #193441;
+  font-weight: bold;
+}
+
+.approve-modal {
+  background-color: #193441;
+}
+.decline-modal {
+  color: darkgreen;
+  text-align: center;
+}
+
+.badge .badge-success {
+  text-align: center;
+}
+
+.center-source {
+  text-align: center;
+}
+
+.right-align-td {
+  text-align: right;
+  align: right;
+}
+
+.slick-list .col-lg-5{
+  height: 100%;
+}
+
+.edit-icon{
+  display: inline;
+  color: darkgreen;
+}
+
+.center-icon{
+  padding-top: 0px;
+  text-align: center;
+}
+
+#login-background-color{
+  background-color: #193441;
+  border-bottom: black;
+  border-bottom: 80px;
+}
+
+#special-signup-footer {
+  background-color: #193441;
+  height: 500px;
+  min-height: 550px;
+}
+
+.analytics-text-box {
+  font-weight: bold;
+}
+
+.analytics-text-box-label {
+  font-weight: bold;
+  text-align: center;
+}
+
+.default-background {
+  background-color: rgb(237, 241, 247);
+  color: black;
+  border: 5px;
+  border-color: black;
+}
+
+.selected-modal {
+  background-color: #193441;
+  color: white;
+  border: none;
+}
+
+.chart-selector {
+  border-left: 5px
+}
+
+.form-control .chart-selector {
+  border-right: 5px;
+  font-weight: bold;
+}
+
+.widgets-analytics {
+  font-style: normal;
+}
+
+.widget-font {
+  font-family: "Open Sans", Helvetica, Arial, sans-serif;
+}
+
+.daily-overview-navigation {
+  margin-bottom: 8px;
+  margin-right: 5px;
+}
+
+.daily-overview-navigation-flip {
+  transform: rotate(180deg);
+  margin-bottom: 8px;
+  margin-left: 5px;
+}
+
+.card-block.card-block-no-padding-bottom {
+  padding-bottom: 0px;
+}
+
+.productivity-analytics-margin-left {
+  margin-left: 4rem;
+}
+
+.col-sm-7.form-control-label.label-no-bottom-padding {
+  margin-bottom: 0px;
+}
+
+.release-notes {
+  padding-bottom: 10px;
+  font-size: large;
+}
