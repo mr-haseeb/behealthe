@@ -1,1 +1,1 @@
-web: gunicorn behealthe.wsgi --log-file 
+web: gunicorn behealthe.wsgi --log-file -
