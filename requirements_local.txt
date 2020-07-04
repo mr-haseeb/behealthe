@@ -56,3 +56,19 @@ whitenoise==5.1.0
 widgetsnbextension==3.5.1
 wrapt==1.11.2
 zipp==3.1.0
+
+
+# Extra Extensions Used
+django-allauth
+django-crispy-forms
+django-webpack-loader
+django-filter
+django-phonenumber-field
+django-celery-beat
+django-admin-honeypot
+django-extensions
+django-rest-auth
+django-secure
+fitbit
+Faker
+phonenumbers

@@ -1,0 +1,361 @@
+from django.conf import settings
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from rest_framework import serializers
+from rest_framework.fields import CharField
+from rest_framework.generics import get_object_or_404
+
+from apis.betterself.v1.supplements.serializers import SupplementReadSerializer
+from apis.betterself.v1.constants import DAILY_FREQUENCY, MONTHLY_FREQUENCY
+from apis.betterself.v1.users.serializers import PhoneNumberDetailsSerializer
+from betterself.utils.date_utils import get_current_date_months_ago, get_current_utc_time_and_tz
+from config.settings.constants import TESTING, LOCAL
+from events.models import INPUT_SOURCES_TUPLES, UserActivity, SupplementReminder, WEB_INPUT_SOURCE, SupplementLog
+from supplements.models import Supplement, UserSupplementStack
+
+
+def valid_daily_max_minutes(value):
+    minutes_in_day = 60 * 24
+    if value > minutes_in_day:
+        raise serializers.ValidationError('Error - More than minutes in a day.')
+    elif value < 0:
+        raise serializers.ValidationError('Less than 1 is not allowed.')
+
+
+class SupplementLogCreateUpdateSerializer(serializers.Serializer):
+    supplement_uuid = serializers.UUIDField(source='supplement.uuid')
+    quantity = serializers.FloatField(default=1)
+    time = serializers.DateTimeField()
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES)
+    uuid = serializers.UUIDField(required=False, read_only=True)
+    supplement_name = CharField(source='supplement.name', read_only=True, required=False)
+    duration_minutes = serializers.IntegerField(default=0)
+    notes = serializers.CharField(default='', max_length=1000, trim_whitespace=True, required=False, allow_blank=True)
+
+    @classmethod
+    def validate_supplement_uuid(cls, value):
+        # serializers check if these are valid uuid fields, but they don't
+        # check that these objects should actually exist. do it here!
+        try:
+            Supplement.objects.get(uuid=value)
+        except Supplement.DoesNotExist:
+            raise ValidationError('Supplement UUID {} does not exist'.format(value))
+
+        return value
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        create_model = self.context['view'].model
+
+        supplement_uuid = validated_data.pop('supplement')['uuid']
+
+        # this is a lame hack, but I don't want to rewrite the generic posts
+        # essentially what happens is we share a supplement across different users
+        # which should never happen in production
+        if settings.DJANGO_ENVIRONMENT in (TESTING, LOCAL):
+            supplement = Supplement.objects.get(uuid=supplement_uuid)
+        else:
+            supplement = Supplement.objects.get(uuid=supplement_uuid, user=user)
+
+        time = validated_data.pop('time')
+
+        obj, _ = create_model.objects.update_or_create(
+            user=user,
+            time=time,
+            supplement=supplement,
+            defaults=validated_data
+        )
+
+        return obj
+
+    def update(self, instance, validated_data):
+        if 'supplement' in validated_data:
+            supplement_uuid = validated_data.get('supplement')['uuid']
+            supplement = get_object_or_404(Supplement, uuid=supplement_uuid)
+            instance.supplement = supplement
+
+        instance.source = validated_data.get('source', instance.source)
+        instance.duration_minutes = validated_data.get('duration_minutes', instance.duration_minutes)
+        instance.quantity = validated_data.get('quantity', instance.quantity)
+        instance.time = validated_data.get('time', instance.time)
+        instance.notes = validated_data.get('notes', instance.notes)
+        instance.save()
+        return instance
+
+
+class SupplementLogReadOnlySerializer(serializers.ModelSerializer):
+    supplement_name = CharField(source='supplement.name')
+    supplement_uuid = CharField(source='supplement.uuid')
+    quantity = serializers.FloatField()
+
+    class Meta:
+        model = SupplementLog
+        fields = (
+            'supplement_name', 'supplement_uuid', 'quantity', 'time', 'source', 'uuid', 'duration_minutes',
+            'notes'
+        )
+
+
+class ProductivityLogReadSerializer(serializers.Serializer):
+    very_productive_time_minutes = serializers.IntegerField(required=False)
+    productive_time_minutes = serializers.IntegerField(required=False)
+    neutral_time_minutes = serializers.IntegerField(required=False)
+    distracting_time_minutes = serializers.IntegerField(required=False)
+    very_distracting_time_minutes = serializers.IntegerField(required=False)
+    date = serializers.DateField()
+    uuid = serializers.UUIDField()
+
+
+class ProductivityLogCreateSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(required=False, read_only=True)
+    very_productive_time_minutes = serializers.IntegerField(required=False, validators=[valid_daily_max_minutes])
+    productive_time_minutes = serializers.IntegerField(required=False, validators=[valid_daily_max_minutes])
+    neutral_time_minutes = serializers.IntegerField(required=False, validators=[valid_daily_max_minutes])
+    distracting_time_minutes = serializers.IntegerField(required=False, validators=[valid_daily_max_minutes])
+    very_distracting_time_minutes = serializers.IntegerField(required=False, validators=[valid_daily_max_minutes])
+    date = serializers.DateField()
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        create_model = self.context['view'].model
+        date = validated_data.pop('date')
+
+        obj, created = create_model.objects.update_or_create(
+            user=user,
+            date=date,
+            defaults=validated_data)
+
+        return obj
+
+
+class UserActivitySerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(required=False, read_only=True)
+    name = serializers.CharField()
+    is_significant_activity = serializers.BooleanField(required=False)
+    is_negative_activity = serializers.BooleanField(required=False)
+    is_all_day_activity = serializers.BooleanField(required=False)
+
+    def create(self, validated_data):
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+        name = validated_data.pop('name')
+
+        obj, created = create_model.objects.update_or_create(
+            user=user,
+            name=name,
+            defaults=validated_data)
+
+        return obj
+
+
+class UserActivityUpdateSerializer(serializers.Serializer):
+    """
+    The create and update serializers "could" be combined, but I rather
+    be explicit separation for now, I can combine them later -- just don't want to build
+    tests that assume they're nested.
+    """
+    uuid = serializers.UUIDField()
+    name = serializers.CharField(required=False)
+    is_significant_activity = serializers.BooleanField(required=False)
+    is_negative_activity = serializers.BooleanField(required=False)
+    is_all_day_activity = serializers.BooleanField(required=False)
+
+    def update(self, instance, validated_data):
+        # Maybe you're doing this wrong ... don't think you should need to do all of this
+        instance.name = validated_data.get('name', instance.name)
+        instance.is_significant_activity = validated_data.get('is_significant_activity',
+                                                              instance.is_significant_activity)
+        instance.is_negative_activity = validated_data.get('is_negative_activity', instance.is_negative_activity)
+        instance.is_all_day_activity = validated_data.get('is_all_day_activity', instance.is_all_day_activity)
+        instance.save()
+
+        return instance
+
+
+class UserActivityLogCreateSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(required=False, read_only=True)
+    # We send back user_activity_uuid after an event is created to serialize correctly
+    user_activity = UserActivitySerializer(required=False, read_only=True)
+    user_activity_uuid = serializers.UUIDField(source='user_activity.uuid')
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES)
+    duration_minutes = serializers.IntegerField(default=0)
+    time = serializers.DateTimeField()
+
+    def create(self, validated_data):
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+
+        activity_uuid = validated_data.pop('user_activity')['uuid']
+        user_activity = UserActivity.objects.get(uuid=activity_uuid)
+        time = validated_data.pop('time')
+
+        obj, created = create_model.objects.update_or_create(
+            user=user,
+            user_activity=user_activity,
+            time=time,
+            defaults=validated_data)
+
+        return obj
+
+    def update(self, instance, validated_data):
+        if 'user_activity' in validated_data:
+            try:
+                user_activity_uuid = validated_data['user_activity']['uuid']
+                user_activity = UserActivity.objects.get(uuid=user_activity_uuid, user=instance.user)
+            except ObjectDoesNotExist:
+                raise ValidationError('Invalid User Activity UUID Entered')
+
+            instance.user_activity = user_activity
+
+        instance.user_activity_uuid = validated_data.get('user_activity', instance.user_activity.uuid)
+        instance.duration_minutes = validated_data.get('duration_minutes', instance.duration_minutes)
+        instance.time = validated_data.get('time', instance.time)
+        instance.source = validated_data.get('source', instance.source)
+        instance.save()
+        return instance
+
+
+class UserActivityLogReadSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField()
+    user_activity = UserActivitySerializer()
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES)
+    duration_minutes = serializers.IntegerField()
+    time = serializers.DateTimeField()
+
+
+class SleepLogReadSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField()
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES)
+
+
+class SleepLogCreateSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(required=False, read_only=True)
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES)
+
+    def validate(self, data):
+        """
+        Check that start_end/end_times are valid
+        """
+        if data['start_time'] >= data['end_time']:
+            raise serializers.ValidationError('End time must occur after start')
+
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+        start_time = data['start_time']
+        end_time = data['end_time']
+
+        if create_model.objects.filter(user=user).filter(end_time__gte=start_time, start_time__lte=end_time).exists():
+            raise ValidationError('Overlapping Periods Found')
+
+        return data
+
+    def create(self, validated_data):
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+
+        obj, created = create_model.objects.update_or_create(
+            user=user,
+            start_time=validated_data['start_time'],
+            end_time=validated_data['end_time'],
+            defaults=validated_data)
+
+        return obj
+
+
+class ProductivityLogRequestParametersSerializer(serializers.Serializer):
+    start_date = serializers.DateField(default=get_current_date_months_ago(3))
+    cumulative_window = serializers.IntegerField(default=1, min_value=1, max_value=365 * 3)
+    complete_date_range_in_daily_frequency = serializers.BooleanField(default=False)
+
+
+class SupplementLogRequestParametersSerializer(serializers.Serializer):
+    start_date = serializers.DateField(default=get_current_date_months_ago(3))
+    frequency = serializers.ChoiceField([DAILY_FREQUENCY, MONTHLY_FREQUENCY, None], default=None)
+    # this is a bit tricky to explain, but if true it means to always have the results for any daily frequencies
+    # to include the entire date_range from start end date range, which will result in a lot of null/empty data
+    complete_date_range_in_daily_frequency = serializers.BooleanField(default=False)
+
+    def validate(self, validated_data):
+        if not validated_data['frequency'] and validated_data['complete_date_range_in_daily_frequency']:
+            raise ValidationError('If there is no frequency, results should not enclose all date ranges between start '
+                                  'and ending periods')
+
+        return validated_data
+
+
+class SupplementReminderReadSerializer(serializers.ModelSerializer):
+    supplement = SupplementReadSerializer()
+    phone_number_details = PhoneNumberDetailsSerializer(source='user.userphonenumberdetails')
+
+    class Meta:
+        fields = ['supplement', 'reminder_time', 'quantity', 'last_sent_reminder_time', 'phone_number_details', 'uuid']
+        model = SupplementReminder
+
+
+class SupplementReminderCreateSerializer(serializers.ModelSerializer):
+    supplement_uuid = serializers.UUIDField(source='supplement.uuid')
+
+    class Meta:
+        model = SupplementReminder
+        fields = ('supplement_uuid', 'reminder_time', 'quantity')
+
+    @classmethod
+    def validate_supplement_uuid(cls, value):
+        # serializers check if these are valid uuid fields, but they don't
+        # check that these objects should actually exist. do it here!
+        try:
+            Supplement.objects.get(uuid=value)
+        except Supplement.DoesNotExist:
+            raise ValidationError('Supplement UUID {} does not exist'.format(value))
+
+        return value
+
+    def validate(self, data):
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+
+        if create_model.objects.filter(user=user).count() >= 5:
+            raise ValidationError('Error: Limit of 5 Supplement Reminders A Day')
+
+        return data
+
+    def create(self, validated_data):
+        create_model = self.context['view'].model
+        user = self.context['request'].user
+
+        supplement_uuid = validated_data.pop('supplement')['uuid']
+
+        # this is a lame hack, but I don't want to rewrite the generic posts
+        # essentially what happens is we share a supplement across different users
+        # which should never happen in production
+        if settings.DJANGO_ENVIRONMENT in (TESTING, LOCAL):
+            supplement = Supplement.objects.get(uuid=supplement_uuid)
+        else:
+            supplement = Supplement.objects.get(uuid=supplement_uuid, user=user)
+
+        reminder_time = validated_data.pop('reminder_time')
+
+        obj, created = create_model.objects.update_or_create(
+            user=user,
+            supplement=supplement,
+            reminder_time=reminder_time,
+            defaults=validated_data)
+
+        return obj
+
+
+class SupplementStackLogSerializer(serializers.Serializer):
+    stack_uuid = serializers.UUIDField()
+    time = serializers.DateTimeField(default=get_current_utc_time_and_tz)
+    source = serializers.ChoiceField(INPUT_SOURCES_TUPLES, default=WEB_INPUT_SOURCE)
+
+    @classmethod
+    def validate_stack_uuid(cls, value):
+        check_if_exists = UserSupplementStack.objects.filter(uuid=value).exists()
+        if not check_if_exists:
+            raise ValidationError('Supplement Stack UUID {} does not exist'.format(value))
+
+        return value

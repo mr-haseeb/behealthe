@@ -38,7 +38,54 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+     #Admin
+     'rest_framework.authtoken',
+     'django.contrib.sites'
 ]
+
+SITE_ID = 1
+
+# Custom user app defaults
+# Select the correct user model
+AUTH_USER_MODEL = 'users.User'
+LOGIN_REDIRECT_URL = 'users:redirect'
+LOGIN_URL = 'account_login'
+
+
+THIRD_PARTY_APPS = [
+    'crispy_forms',  # Form layouts
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.github',
+    'allauth.socialaccount.providers.facebook',
+    'rest_framework',
+    'django_extensions',
+    'webpack_loader',
+    'django_filters',
+    'phonenumber_field',
+    'django_celery_beat',
+    'admin_honeypot',
+    'rest_auth',
+    'rest_auth.registration',
+]
+
+
+
+# Apps specific for this project go here.
+LOCAL_APPS = [
+    'behealthe.users',
+    'supplements.apps.SupplementsConfig',
+    'vendors.apps.VendorsConfig',
+    'apis.apps.ApisConfig',
+    'apis.fitbit',
+    'events.apps.EventsConfig',
+    'analytics.apps.AnalyticsConfig',
+]
+
+INSTALLED_APPS += THIRD_PARTY_APPS + LOCAL_APPS
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
